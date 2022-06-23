@@ -55,14 +55,6 @@ inputs:
     type: string
     default: https://charts.bitnami.com/bitnami
 
-  service_account_name:
-    type: string
-    default: examples-user
-
-  service_account_namespace:
-    type: string
-    default: default
-
 node_templates:
 
   eks_cluster:
