@@ -1,0 +1,9 @@
+rest_calls:
+  - path: /api/v1/applications/{{NAME}}
+    method: DELETE
+    headers:
+      Authorization: "{{TOKEN}}"
+    payload:
+    response_format: json
+    recoverable_codes: [400]
+    response_translation:
