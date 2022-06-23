@@ -6,7 +6,7 @@ rest_calls:
       Authorization: "{{TOKEN}}"
     payload:
       metadata:
-        name: agrocd
+        name: "{{NAME}}"
       spec:
         destination:
           name: ''
@@ -14,7 +14,7 @@ rest_calls:
           server: 'https://kubernetes.default.svc'
         source:
           path: manifests
-          repoURL: 'https://github.com/Einsteinish/ArgoCD.git'
+          repoURL: "{{REPO}}"
           targetRevision: HEAD
         project: default
       name: ''

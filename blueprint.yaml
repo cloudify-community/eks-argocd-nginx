@@ -132,7 +132,7 @@ node_templates:
           name: argo-cd-server
     relationships:
       - target: release
-        type: cloudify.relationships.contained_in
+        type: cloudify.relationships.depends_on
 
   argocd_secret:
     type: cloudify.kubernetes.resources.CustomBlueprintDefinedResource
@@ -163,7 +163,7 @@ node_templates:
           payload: V1DeleteOptions
     relationships:
       - type: cloudify.relationships.depends_on
-        target: release
+        target: agrocd_service_endpoint
     interfaces:
       cloudify.interfaces.lifecycle:
         delete: {}
@@ -172,6 +172,19 @@ node_templates:
           executor: central_deployment_agent
           inputs:
             secret: { get_attribute: [ argocd_secret, kubernetes, data, clearPassword ] }
+
+  wait_for_argocd:
+    type: cloudify.nodes.Root
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/wait_for_ip.py
+          executor: central_deployment_agent
+          inputs:
+            host: { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: argocd_secret
 
   agrocd_token:
     type: cloudify.rest.Requests
@@ -190,7 +203,7 @@ node_templates:
               PASSWORD: { get_attribute: [ argocd_secret, decoded_secret ] }
     relationships:
       - type: cloudify.relationships.depends_on
-        target: argocd_secret
+        target: wait_for_argocd
 
   agrocd_add_repo:
     type: cloudify.rest.Requests
@@ -205,7 +218,7 @@ node_templates:
           inputs:
             template_file: resources/add_repository.yaml
             params:
-              REPO: 'https://github.com/Einsteinish/ArgoCD.git'
+              REPO: 'https://github.com/ahmadiesa-abu/ArgoCD-Example.git'
               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
     relationships:
       - type: cloudify.relationships.depends_on
@@ -224,6 +237,8 @@ node_templates:
           inputs:
             template_file: resources/create_application.yaml
             params:
+              REPO: 'https://github.com/ahmadiesa-abu/ArgoCD-Example.git'
+              NAME: 'agrocd'
               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
         start:
           inputs:
@@ -241,12 +256,41 @@ node_templates:
       - type: cloudify.relationships.depends_on
         target: agrocd_add_repo
 
+  nginx_service:
+    type: cloudify.kubernetes.resources.Service
+    properties:
+      client_config:
+        configuration: *kubernetes_master_configuration
+      use_external_resource: true
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nginx
+    relationships:
+      - target: agrocd_create_application
+        type: cloudify.relationships.depends_on
 
+
+  wait_for_nginx:
+    type: cloudify.nodes.Root
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: scripts/wait_for_ip.py
+          executor: central_deployment_agent
+          inputs:
+            host: {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: nginx_service
 
 outputs:
 
   agrocd_url:
     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
+  nginx_url:
+    value: { concat: [ 'http://', {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}] }
   agrocd_user:
     value: admin
   agrocd_passsword:
