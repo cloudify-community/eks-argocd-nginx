@@ -6,6 +6,7 @@ imports:
   - https://cloudify.co/spec/cloudify/6.3.0/types.yaml
   - plugin:cloudify-helm-plugin
   - plugin:cloudify-utilities-plugin
+  - plugin:cloudify-kubernetes-plugin
 
 inputs:
 
@@ -132,8 +133,8 @@ node_templates:
     relationships:
       - type: cloudify.relationships.depends_on
         target: argocd_secret
-outputs:
 
+capabilities:
   agrocd_url:
     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
   agrocd_user:
