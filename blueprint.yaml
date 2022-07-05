@@ -91,7 +91,7 @@ node_templates:
       resource_config:
         blueprint:
           id: { concat: [ { get_input: eks_cluster_name }, "-argocd" ] }
-          blueprint_archive: https://github.com/acritelli/cfy-argocdtest/archive/refs/heads/master.zip
+          blueprint_archive: https://github.com/acritelli/cfy-argocdtest/archive/refs/heads/dev.zip
           main_file_name: argocd.yaml
         deployment:
           id: { concat: [ { get_input: eks_cluster_name }, "-argocd" ] }
