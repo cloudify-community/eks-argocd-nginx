@@ -30,7 +30,7 @@ inputs:
     type: string
     description: Repository URL
     display_label: Repository URL
-    default: https://github.com/ahmadiesa-abu/ArgoCD-Example.git
+    default: https://github.com/acritelli/cfy-argocdtest/archive/refs/heads/dev.zip
 
   repo_name:
     type: string
@@ -51,7 +51,7 @@ inputs:
     default: { get_secret: kubernetes_config }
 
   kubernetes_token:
-    description: Kubernetes service accoutnt token used by Helm
+    description: Kubernetes service account token used by Helm
     display_label: Kubernetes SA Token
     type: string
     default: { get_secret: kubernetes_token }
@@ -88,22 +88,6 @@ node_templates:
                 params:
                   REPO_NAME: { get_input: repo_name }
                   REPO: { get_input: repo_url }
-        # TODO:
-        # delete:
-        #   inputs:
-        #     templates:
-        #       - template_file: templates/authorize_argocd.yaml
-        #         save_to: token-details
-        #         params:
-        #           USERNAME: { get_input: argocd_username }
-        #           PASSWORD: { get_input: argocd_password }
-        #       - template_file: templates/delete_repository.yaml
-        #         prerender: true
-        #         save_to: repository_details
-        #         params_attributes:
-        #           TOKEN: [ token-details, result_properties, token ]
-        #         params:
-        #           REPO_URL: { get_input: repo_url }
 
   argocd_application:
     type: cloudify.rest.BunchRequests
@@ -211,13 +195,7 @@ node_templates:
       - target: argocd_application
         type: cloudify.relationships.depends_on
 
-# outputs:
-
-#   agrocd_url:
-#     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
-#   nginx_url:
-#     value: { concat: [ 'http://', {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}] }
-#   agrocd_user:
-#     value: admin
-#   agrocd_passsword:
-#     value: { get_attribute: [ argocd_secret, decoded_secret ] }
+capabilities:
+  nginx_url:
+    description: Load balancer endpoint for NGINX deployment
+    value: { concat: [ 'http://', { get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }

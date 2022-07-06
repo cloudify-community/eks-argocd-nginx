@@ -1,6 +1,6 @@
 tosca_definitions_version: cloudify_dsl_1_3
 
-description: Cloudify Helm-eks blueprint. Creates EKS cluster and installs helm chart on top of it.
+description: Deploys an EKS cluster with ArgoCD and NGINX deployed via ArgoCD using service composition.
 
 imports:
   - https://cloudify.co/spec/cloudify/6.3.0/types.yaml
@@ -95,219 +95,44 @@ node_templates:
           main_file_name: argocd.yaml
         deployment:
           id: { concat: [ { get_input: eks_cluster_name }, "-argocd" ] }
+          inputs:
+            kubeconfig: { get_attribute: [ eks_cluster, capabilities, connection_details, file_content ] }
+            kubernetes_endpoint: { get_attribute: [ eks_cluster, capabilities, endpoint ] }
+    relationships:
+      - target: eks_cluster
+        type: cloudify.relationships.contained_in
 
-#   helm_install:
-#     type: cloudify.nodes.helm.Binary
-#     properties:
-#       use_existing_resource: false
-#       installation_source: { get_input: helm_installation_source }
+  nginx:
+    type: cloudify.nodes.Component
+    properties:
+      resource_config:
+        blueprint:
+          id: { concat: [ { get_input: eks_cluster_name }, "-nginx" ] }
+          blueprint_archive: https://github.com/acritelli/cfy-argocdtest/archive/refs/heads/dev.zip
+          main_file_name: nginx_argocd.yaml
+        deployment:
+          id: { concat: [ { get_input: eks_cluster_name }, "-nginx" ] }
+          inputs:
+            argocd_endpoint: { get_attribute: [ argocd, capabilities, argocd_endpoint ] }
+            argocd_password: { get_attribute: [ argocd, capabilities, argocd_password ] }
+            kubernetes_endpoint: { get_attribute: [ eks_cluster, capabilities, endpoint ] }
+    relationships:
+      - target: eks_cluster
+        type: cloudify.relationships.contained_in
+      - target: argocd
+        type: cloudify.relationships.depends_on
 
-#   repo:
-#     type: cloudify.nodes.helm.Repo
-#     properties:
-#       resource_config:
-#         name: bitnami
-#         repo_url: https://charts.bitnami.com/bitnami
-#     relationships:
-#       - target: helm_install
-#         type: cloudify.helm.relationships.run_on_host
+outputs:
 
-#   release:
-#     type: cloudify.nodes.helm.Release
-#     properties:
-#       client_config:
-#         configuration: &kubernetes_master_configuration
-#           file_content: { get_secret: kubernetes_config }
-#           api_options:
-#             api_key: { get_secret: kubernetes_token }
-#       resource_config:
-#         name: argo-cd
-#         chart: bitnami/argo-cd
-#         set_values:
-#           - name: "server.service.type"
-#             value: LoadBalancer
-#     relationships:
-#       - target: helm_install
-#         type: cloudify.helm.relationships.run_on_host
-#       - target: repo
-#         type: cloudify.relationships.depends_on
-#       - target: eks_cluster
-#         type: cloudify.relationships.depends_on
-
-
-#   agrocd_service_endpoint:
-#     type: cloudify.kubernetes.resources.Service
-#     properties:
-#       client_config:
-#         configuration: *kubernetes_master_configuration
-#       use_external_resource: true
-#       definition:
-#         apiVersion: v1
-#         kind: Service
-#         metadata:
-#           name: argo-cd-server
-#     relationships:
-#       - target: release
-#         type: cloudify.relationships.depends_on
-
-#   argocd_secret:
-#     type: cloudify.kubernetes.resources.CustomBlueprintDefinedResource
-#     properties:
-#       client_config:
-#         configuration: *kubernetes_master_configuration
-#       use_external_resource: true
-#       definition:
-#         apiVersion: v1
-#         kind: Secret
-#         metadata:
-#           name: 'argocd-secret'
-#       api_mapping:
-#         create:
-#           api: CoreV1Api
-#           method: create_namespaced_secret
-#           payload: V1Secret
-#         read:
-#           api: CoreV1Api
-#           method: read_namespaced_secret
-#         update:
-#           api: CoreV1Api
-#           method: replace_namespaced_secret
-#           payload: V1Secret
-#         delete:
-#           api: CoreV1Api
-#           method: delete_namespaced_secret
-#           payload: V1DeleteOptions
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: agrocd_service_endpoint
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         delete: {}
-#         poststart:
-#           implementation: scripts/decode_secret.py
-#           executor: central_deployment_agent
-#           inputs:
-#             secret: { get_attribute: [ argocd_secret, kubernetes, data, clearPassword ] }
-
-#   wait_for_argocd:
-#     type: cloudify.nodes.Root
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         create:
-#           implementation: scripts/wait_for_ip.py
-#           executor: central_deployment_agent
-#           inputs:
-#             host: { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] }
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: argocd_secret
-
-#   agrocd_token:
-#     type: cloudify.rest.Requests
-#     properties:
-#       hosts: [ { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ]
-#       port: 443
-#       ssl: true
-#       verify: false
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         start:
-#           inputs:
-#             template_file: resources/authorize_agrocd.yaml
-#             params:
-#               USERNAME: 'admin'
-#               PASSWORD: { get_attribute: [ argocd_secret, decoded_secret ] }
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: wait_for_argocd
-
-#   agrocd_add_repo:
-#     type: cloudify.rest.Requests
-#     properties:
-#       hosts: [{ get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] }]
-#       port: 443
-#       ssl: true
-#       verify: false
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         start:
-#           inputs:
-#             template_file: resources/add_repository.yaml
-#             params:
-#               REPO: 'https://github.com/ahmadiesa-abu/ArgoCD-Example.git'
-#               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: agrocd_token
-
-#   agrocd_create_application:
-#     type: cloudify.rest.Requests
-#     properties:
-#       hosts: [{ get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] }]
-#       port: 443
-#       ssl: true
-#       verify: false
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         configure:
-#           inputs:
-#             template_file: resources/create_application.yaml
-#             params:
-#               REPO: 'https://github.com/ahmadiesa-abu/ArgoCD-Example.git'
-#               NAME: 'agrocd'
-#               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
-#         start:
-#           inputs:
-#             template_file: resources/sync_application.yaml
-#             params:
-#               NAME: 'agrocd'
-#               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
-#         delete:
-#           inputs:
-#             template_file: resources/delete_application.yaml
-#             params:
-#               NAME: 'agrocd'
-#               TOKEN: {concat: ["Bearer ",{ get_attribute: [ agrocd_token, result_properties, token ] }]}
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: agrocd_add_repo
-
-#   nginx_service:
-#     type: cloudify.kubernetes.resources.Service
-#     properties:
-#       client_config:
-#         configuration: *kubernetes_master_configuration
-#       use_external_resource: true
-#       definition:
-#         apiVersion: v1
-#         kind: Service
-#         metadata:
-#           name: nginx
-#     relationships:
-#       - target: agrocd_create_application
-#         type: cloudify.relationships.depends_on
-
-
-#   wait_for_nginx:
-#     type: cloudify.nodes.Root
-#     interfaces:
-#       cloudify.interfaces.lifecycle:
-#         create:
-#           implementation: scripts/wait_for_ip.py
-#           executor: central_deployment_agent
-#           inputs:
-#             host: {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}
-#     relationships:
-#       - type: cloudify.relationships.depends_on
-#         target: nginx_service
-
-# outputs:
-
-#   agrocd_url:
-#     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
-#   nginx_url:
-#     value: { concat: [ 'http://', {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}] }
-#   agrocd_user:
-#     value: admin
-#   agrocd_passsword:
-#     value: { get_attribute: [ argocd_secret, decoded_secret ] }
+  argocd_url:
+    description: URL used for accessing ArgoCD installation
+    value: { concat: [ "https://", { get_attribute: [ argocd, capabilities, argocd_endpoint ] } ] }
+  argocd_user:
+    description: Username for accessing ArgoCD
+    value: { get_attribute: [ argocd, capabilities, argocd_user ] }
+  agrocd_passsword:
+    description: Password for accessing ArgoCD
+    value: { get_attribute: [ argocd, capabilities, argocd_password ] }
+  nginx_url:
+    description: Load balancer endpoint for NGINX deployment
+    value: { concat: [ 'http://', { get_attribute: [ nginx, capabilities]} ] }
