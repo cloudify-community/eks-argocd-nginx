@@ -1,0 +1,219 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+description: Deploys NGINX via ArgoCD
+
+imports:
+  - https://cloudify.co/spec/cloudify/6.3.0/types.yaml
+  - plugin:cloudify-helm-plugin
+  - plugin:cloudify-kubernetes-plugin
+  - plugin:cloudify-utilities-plugin
+
+inputs:
+
+  argocd_endpoint:
+    type: string
+    description: API endpoint for ArgoCD installation
+    display_label: ArgoCD Endpoint
+    default: ad03da1b38ee64d3c88a52b740d8f6e4-298378292.us-east-1.elb.amazonaws.com
+
+  argocd_username:
+    type: string
+    description: Username for ArgoCD
+    display_label: ArgoCD Username
+    default: admin
+
+  argocd_password:
+    type: string
+    description: Password for ArgoCD
+    display_label: ArgoCD Password
+    default: TW7HlpmAWl
+
+  repo_url:
+    type: string
+    description: Repository URL
+    display_label: Repository URL
+    default: https://github.com/ahmadiesa-abu/ArgoCD-Example.git
+
+  repo_name:
+    type: string
+    description: Repository Name
+    display_label: Repository Name
+    default: demo-repo
+
+  application_name:
+    type: string
+    description: Name of deployed application
+    display_label: Application Name
+    default: demo-app
+
+  kubeconfig:
+    description: Kubernetes configuration file used by Helm
+    display_label: Kubeconfig
+    type: string
+    default: { get_secret: kubernetes_config }
+
+  kubernetes_token:
+    description: Kubernetes service accoutnt token used by Helm
+    display_label: Kubernetes SA Token
+    type: string
+    default: { get_secret: kubernetes_token }
+
+node_templates:
+
+  argocd_repo:
+    type: cloudify.rest.BunchRequests
+    properties:
+      hosts: [ { get_input: argocd_endpoint } ]
+      port: 443
+      ssl: true
+      verify: false
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          inputs:
+            templates:
+              - template_file: templates/authorize_argocd.yaml
+                save_to: token-details
+                params:
+                  USERNAME: { get_input: argocd_username }
+                  PASSWORD: { get_input: argocd_password }
+              - template_file: templates/add_repository.yaml
+                prerender: true
+                save_to: repository_details
+                params_attributes:
+                  TOKEN: [ token-details, result_properties, token ]
+                params:
+                  REPO_NAME: { get_input: repo_name }
+                  REPO: { get_input: repo_url }
+        # TODO:
+        # delete:
+        #   inputs:
+        #     templates:
+        #       - template_file: templates/authorize_argocd.yaml
+        #         save_to: token-details
+        #         params:
+        #           USERNAME: { get_input: argocd_username }
+        #           PASSWORD: { get_input: argocd_password }
+        #       - template_file: templates/delete_repository.yaml
+        #         prerender: true
+        #         save_to: repository_details
+        #         params_attributes:
+        #           TOKEN: [ token-details, result_properties, token ]
+        #         params:
+        #           REPO_URL: { get_input: repo_url }
+
+  argocd_application:
+    type: cloudify.rest.BunchRequests
+    properties:
+      hosts: [ { get_input: argocd_endpoint } ]
+      port: 443
+      ssl: true
+      verify: false
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure:
+          inputs:
+            templates:
+              - template_file: templates/authorize_argocd.yaml
+                save_to: token-details
+                params:
+                  USERNAME: { get_input: argocd_username }
+                  PASSWORD: { get_input: argocd_password }
+              - template_file: templates/create_application.yaml
+                prerender: true
+                save_to: repository_details
+                params_attributes:
+                  TOKEN: [ token-details, result_properties, token ]
+                params:
+                  REPO: { get_input: repo_url }
+                  NAME: { get_input: application_name }
+        start:
+          inputs:
+            templates:
+              - template_file: templates/authorize_argocd.yaml
+                save_to: token-details
+                params:
+                  USERNAME: { get_input: argocd_username }
+                  PASSWORD: { get_input: argocd_password }
+              - template_file: templates/sync_application.yaml
+                prerender: true
+                save_to: repository_details
+                params_attributes:
+                  TOKEN: [ token-details, result_properties, token ]
+                params:
+                  NAME: { get_input: application_name }
+        delete:
+          inputs:
+            templates:
+              - template_file: templates/authorize_argocd.yaml
+                save_to: token-details
+                params:
+                  USERNAME: { get_input: argocd_username }
+                  PASSWORD: { get_input: argocd_password }
+              - template_file: templates/delete_application.yaml
+                prerender: true
+                save_to: repository_details
+                params_attributes:
+                  TOKEN: [ token-details, result_properties, token ]
+                params:
+                  NAME: { get_input: application_name }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: argocd_repo
+
+  service_endpoint:
+    type: cloudify.rest.BunchRequests
+    properties:
+      hosts: [ { get_input: argocd_endpoint } ]
+      port: 443
+      ssl: true
+      verify: false
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          inputs:
+            templates:
+              - template_file: templates/authorize_argocd.yaml
+                save_to: token-details
+                params:
+                  USERNAME: { get_input: argocd_username }
+                  PASSWORD: { get_input: argocd_password }
+              - template_file: templates/get_application.yaml
+                prerender: true
+                save_to: application-details
+                params_attributes:
+                  TOKEN: [ token-details, result_properties, token ]
+                params:
+                  NAME: { get_input: application_name }
+    relationships:
+      - type: cloudify.relationships.depends_on
+        target: argocd_application
+
+  nginx_service:
+    type: cloudify.kubernetes.resources.Service
+    properties:
+      client_config:
+        configuration:
+          file_content: { get_input: kubeconfig }
+          api_options:
+            api_key: { get_input: kubernetes_token }
+      use_external_resource: true
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nginx
+    relationships:
+      - target: agrocd_create_application
+        type: cloudify.relationships.depends_on
+
+# outputs:
+
+#   agrocd_url:
+#     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
+#   nginx_url:
+#     value: { concat: [ 'http://', {get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname]}] }
+#   agrocd_user:
+#     value: admin
+#   agrocd_passsword:
+#     value: { get_attribute: [ argocd_secret, decoded_secret ] }

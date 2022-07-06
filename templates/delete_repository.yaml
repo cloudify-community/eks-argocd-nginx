@@ -1,0 +1,8 @@
+rest_calls:
+  - path: /api/v1/repositories/{{ REPO_URL }}
+    method: DELETE
+    headers:
+      Content-type: application/json
+      Authorization: "Bearer {{ TOKEN }}"
+    response_format: json
+    recoverable_codes: [400]

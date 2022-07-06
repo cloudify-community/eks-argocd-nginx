@@ -1,0 +1,15 @@
+rest_calls:
+  - path: /api/v1/applications/{{ NAME }}/resource
+    method: GET
+    headers:
+      Content-type: application/json
+      Authorization: "Bearer {{ TOKEN }}"
+    payload:
+      kind: Service
+      version: v1
+      resourceName: nginx
+      namespace: default
+    payload_format: urlencoded
+    response_format: json
+    response_translation:
+      manifest: [manifest]
