@@ -204,7 +204,7 @@ node_templates:
         metadata:
           name: nginx
     relationships:
-      - target: agrocd_create_application
+      - target: argocd_application
         type: cloudify.relationships.depends_on
 
 # outputs:
