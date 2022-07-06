@@ -14,7 +14,11 @@ inputs:
     description: Kubernetes configuration file used by Helm
     display_label: Kubeconfig
     type: string
-    default: { get_secret: kubernetes_config }
+
+  kubernetes_endpoint:
+    description: Kubernetes API endpoint
+    display_label: Kubernetes Endpoint
+    type: string
 
   kubernetes_token:
     description: Kubernetes service accoutnt token used by Helm
@@ -50,7 +54,7 @@ node_templates:
     type: cloudify.nodes.helm.Release
     properties:
       client_config:
-        configuration: &kubernetes_master_configuration
+        configuration:
           file_content: { get_input: kubeconfig }
           api_options:
             api_key: { get_input: kubernetes_token }
@@ -71,7 +75,11 @@ node_templates:
     type: cloudify.kubernetes.resources.Service
     properties:
       client_config:
-        configuration: *kubernetes_master_configuration
+        configuration: &kubernetes_master_configuration
+          api_options:
+            host: { get_input: kubernetes_endpoint }
+            api_key: { get_input: kubernetes_token }
+            verify_ssl: false
       use_external_resource: true
       definition:
         apiVersion: v1
