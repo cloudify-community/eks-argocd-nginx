@@ -147,5 +147,5 @@ capabilities:
     value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
   argocd_user:
     value: admin
-  argocd_passsword:
+  argocd_password:
     value: { get_attribute: [ argocd_secret, decoded_secret ] }
