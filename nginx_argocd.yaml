@@ -14,7 +14,6 @@ inputs:
     type: string
     description: API endpoint for ArgoCD installation
     display_label: ArgoCD Endpoint
-    default: ad03da1b38ee64d3c88a52b740d8f6e4-298378292.us-east-1.elb.amazonaws.com
 
   argocd_username:
     type: string
@@ -26,7 +25,6 @@ inputs:
     type: string
     description: Password for ArgoCD
     display_label: ArgoCD Password
-    default: TW7HlpmAWl
 
   repo_url:
     type: string
@@ -57,6 +55,11 @@ inputs:
     display_label: Kubernetes SA Token
     type: string
     default: { get_secret: kubernetes_token }
+
+  kubernetes_endpoint:
+    description: Kubernetes API endpoint
+    display_label: Kubernetes Endpoint
+    type: string
 
 node_templates:
 
@@ -194,9 +197,10 @@ node_templates:
     properties:
       client_config:
         configuration:
-          file_content: { get_input: kubeconfig }
           api_options:
+            host: { get_input: kubernetes_endpoint }
             api_key: { get_input: kubernetes_token }
+            verify_ssl: false
       use_external_resource: true
       definition:
         apiVersion: v1
