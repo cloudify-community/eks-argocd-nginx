@@ -143,8 +143,8 @@ node_templates:
         target: argocd_secret
 
 capabilities:
-  argocd_url:
-    value: { concat: [ "http://", { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
+  argocd_endpoint:
+    value: { get_attribute: [ agrocd_service_endpoint, kubernetes, status, load_balancer, ingress, 0, hostname ] }
   argocd_user:
     value: admin
   argocd_password:
