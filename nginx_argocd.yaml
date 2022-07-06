@@ -30,7 +30,7 @@ inputs:
     type: string
     description: Repository URL
     display_label: Repository URL
-    default: https://github.com/acritelli/cfy-argocdtest/archive/refs/heads/dev.zip
+    default: https://github.com/acritelli/cfy-argocdtest.git
 
   repo_name:
     type: string
