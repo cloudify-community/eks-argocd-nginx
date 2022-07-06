@@ -13,3 +13,4 @@ rest_calls:
     response_format: json
     response_translation:
       manifest: [manifest]
+    retry_on_connection_error: true

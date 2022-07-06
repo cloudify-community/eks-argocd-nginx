@@ -6,3 +6,4 @@ rest_calls:
       Authorization: "Bearer {{ TOKEN }}"
     response_format: json
     recoverable_codes: [400]
+    retry_on_connection_error: true

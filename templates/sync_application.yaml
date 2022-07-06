@@ -8,5 +8,6 @@ rest_calls:
       name: "{{ NAME }}"
     response_format: json
     recoverable_codes: [400]
+    retry_on_connection_error: true
     response_translation:
         metadata: [metadata]

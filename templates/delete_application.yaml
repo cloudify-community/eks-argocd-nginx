@@ -6,4 +6,5 @@ rest_calls:
     payload:
     response_format: json
     recoverable_codes: [400]
+    retry_on_connection_error: true
     response_translation:

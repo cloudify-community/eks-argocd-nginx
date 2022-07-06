@@ -22,5 +22,6 @@ rest_calls:
       server: 'https://kubernetes.default.svc'
     response_format: json
     recoverable_codes: [400]
+    retry_on_connection_error: true
     response_translation:
         metadata: [metadata]
