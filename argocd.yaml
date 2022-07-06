@@ -21,7 +21,7 @@ inputs:
     type: string
 
   kubernetes_token:
-    description: Kubernetes service accoutnt token used by Helm
+    description: Kubernetes service account token used by Helm
     display_label: Kubernetes SA Token
     type: string
     default: { get_secret: kubernetes_token }
