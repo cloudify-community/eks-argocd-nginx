@@ -129,4 +129,4 @@ outputs:
     value: { get_attribute: [ argocd, capabilities, argocd_password ] }
   nginx_url:
     description: Load balancer endpoint for NGINX deployment
-    value: { concat: [ 'http://', { get_attribute: [ nginx, capabilities]} ] }
+    value: { get_attribute: [ nginx, capabilities, nginx_url ] }
