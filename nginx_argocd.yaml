@@ -30,7 +30,7 @@ inputs:
     type: string
     description: Repository URL
     display_label: Repository URL
-    default: https://github.com/acritelli/cfy-argocdtest.git
+    default: https://github.com/cloudify-community/eks-argocd-nginx.git
 
   repo_name:
     type: string
