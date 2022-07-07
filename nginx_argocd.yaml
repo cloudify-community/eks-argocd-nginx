@@ -199,3 +199,7 @@ capabilities:
   nginx_url:
     description: Load balancer endpoint for NGINX deployment
     value: { concat: [ 'http://', { get_attribute: [ nginx_service, kubernetes, status, load_balancer, ingress, 0, hostname ] } ] }
+
+  argocd_application_url:
+    description: URL of application in ArgoCD
+    value: { concat: [ 'https://', { get_input: argocd_endpoint }, '/applications/', { get_input: application_name } ] }

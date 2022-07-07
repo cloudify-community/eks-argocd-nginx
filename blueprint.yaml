@@ -130,3 +130,6 @@ outputs:
   nginx_url:
     description: Load balancer endpoint for NGINX deployment
     value: { get_attribute: [ nginx, capabilities, nginx_url ] }
+  argocd_application_url:
+    description: URL of application in ArgoCD
+    value: { get_attribute: [ nginx, capabilities, argocd_application_url ] }
